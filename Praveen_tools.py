@@ -1,7 +1,7 @@
 import os
 import torch
 import folder_paths
-from PIL import Image
+from PIL import Image, ImageEnhance
 import numpy as np
 from nodes import *
 
@@ -122,16 +122,84 @@ class MergeImageLists:
         merged = torch.cat([img_tensors[o] for o in order], dim=0)
         
         return (merged,)
+        
+
+class AdjustBrightnessContrast:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "brightness": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01
+                }),
+                "contrast": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01
+                }),
+                "saturation": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01
+                }),
+                "red_gain": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01
+                }),
+                "green_gain": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01
+                }),
+                "blue_gain": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01
+                }),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "adjust"
+    CATEGORY = "image/postprocessing"
+
+    def adjust(self, image, brightness=1.0, contrast=1.0, saturation=1.0, red_gain=1.0, green_gain=1.0, blue_gain=1.0):
+        batch_size, height, width, channels = image.shape
+        result = torch.zeros_like(image)
+
+        for b in range(batch_size):
+            img_tensor = image[b]
+            img_tensor = torch.clamp(img_tensor, 0.0, 1.0)
+
+            img_np = (img_tensor.cpu().numpy() * 255).astype(np.uint8)
+            img_pil = Image.fromarray(img_np).convert("RGB")
+
+            # Apply brightness, contrast, saturation
+            if brightness != 1.0:
+                img_pil = ImageEnhance.Brightness(img_pil).enhance(brightness)
+            if contrast != 1.0:
+                img_pil = ImageEnhance.Contrast(img_pil).enhance(contrast)
+            if saturation != 1.0:
+                img_pil = ImageEnhance.Color(img_pil).enhance(saturation)
+
+            # Convert to numpy for RGB gain adjustment
+            img_np = np.array(img_pil).astype(np.float32) / 255.0
+
+            # Apply RGB gains per channel
+            img_np[..., 0] *= red_gain   # R
+            img_np[..., 1] *= green_gain # G
+            img_np[..., 2] *= blue_gain  # B
+
+            # Clip to valid range
+            img_np = np.clip(img_np, 0.0, 1.0)
+
+            result[b] = torch.from_numpy(img_np)
+
+        return (result,)
 
 # Node registration
 NODE_CLASS_MAPPINGS = {
     "SelectLastImage": SelectLastImage,
     "SplitImageList": SplitImageList,
     "MergeImageLists": MergeImageLists,
+    "AdjustBrightnessContrast": AdjustBrightnessContrast,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SelectLastImage": "Select Last Image",
     "SplitImageList": "Split Image List (3-Way)",
     "MergeImageLists": "Merge Image Lists (3-Way)",
+    "AdjustBrightnessContrast": "Image Brightness/Contrast/Saturation/RGB",
 }
