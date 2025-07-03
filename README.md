@@ -1,4 +1,4 @@
-# 🧩 ComfyUI - Image List Utility Nodes
+# 🧩 ComfyUI - Praveen-Tools
 
 A set of custom nodes for **ComfyUI** that allows advanced manipulation of image lists: splitting, merging, and selecting images efficiently within workflows.
 
@@ -35,7 +35,7 @@ Merges **three image lists** into one combined list, preserving or customizing t
 
 ## 🛠️ Installation
 
-1. Place the Python file (e.g., `image_list_utils.py`) into your `ComfyUI/custom_nodes/` folder.
+1. Place the Python file (e.g., `Praveen_tools.py`) into your `ComfyUI/custom_nodes/` folder.
 2. Restart **ComfyUI**.
 3. Search in the node editor:
    - `"Select Last Image"`
