@@ -1,68 +1,65 @@
-Praveen Tools for ComfyUI
-A collection of custom nodes for ComfyUI, designed to simplify and enhance image processing workflows. These tools offer utility functions for image selection, splitting/merging batches, post-processing enhancements, and dimension validation tailored for models like Stable Diffusion.
+#Praveen Tools for ComfyUI
+A collection of custom nodes for ComfyUI, designed to simplify and enhance image processing workflows. These tools provide utility functions for image selection, batch splitting/merging, post-processing, and dimension validation—tailored especially for models like Stable Diffusion.
 
 🧩 Node Features
 📌 SelectLastImage
 Category: image/utility
+Description: Selects the last image from a batch.
+Inputs:
 
-Description: Selects the last image from a batch of images.
+images (Optional) — List of images
+Output:
 
-Input: Optional list of images
-
-Output: Single image
+Single image
 
 📌 SplitImageList
 Category: image/list
-
-Description: Splits a batch of images into three separate lists based on customizable ratios.
-
+Description: Splits a batch of images into three parts based on customizable ratios.
 Inputs:
 
 images (IMAGE)
 
 split_ratio_1, split_ratio_2 (FLOAT)
+Outputs:
 
-Outputs: 3 separate image batches
+Three separate image batches
 
 📌 MergeImageLists
 Category: image/list
-
-Description: Merges three image batches back into a single list, with customizable order.
-
+Description: Merges three image batches into a single list in customizable order.
 Inputs:
 
 images_1, images_2, images_3 (IMAGE)
 
-merge_order: Order in which to merge (e.g., "1-2-3")
+merge_order (e.g., "1-2-3")
+Output:
 
-Output: Combined image batch
+Combined image batch
 
 📌 AdjustBrightnessContrast
 Category: image/postprocessing
-
-Description: Adjust brightness, contrast, saturation, and individual RGB gains for an image.
-
+Description: Adjusts brightness, contrast, saturation, and individual RGB gains.
 Inputs:
 
-brightness, contrast, saturation
+brightness, contrast, saturation (FLOAT)
 
-red_gain, green_gain, blue_gain
+red_gain, green_gain, blue_gain (FLOAT)
+Output:
 
-Output: Enhanced image
+Enhanced image
 
 📌 ImageDimensions16
 Category: image/dimensions
-
-Description: Ensures image width and height are multiples of 16 and length is a multiple of 4 plus 1 (as required by some models).
-
+Description: Ensures image width and height are multiples of 16, and length is a multiple of 4 plus 1 (for model compatibility).
 Inputs:
 
 width, height, length
+Outputs:
 
-Outputs: Validated/resized dimensions
+Validated/resized dimensions
 
 🔧 Installation
-Copy Praveen_tools.py into your ComfyUI custom nodes folder:
+Copy the file Praveen_tools.py to your custom nodes folder:
 
 bash
 Copy
@@ -70,7 +67,7 @@ Edit
 ComfyUI/custom_nodes/praveen_tools/Praveen_tools.py
 Restart ComfyUI.
 
-Nodes will appear under categories like:
+Nodes will appear under the following categories:
 
 image/utility
 
@@ -100,8 +97,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ImageDimensions16": "Image Dimensions (Multiple of 16)",
 }
 📜 License
-This project is provided under the MIT License.
+This project is licensed under the MIT License.
 
 🙌 Credits
-Developed by Praveen Halder.
+Developed by Praveen Halder
 Built with ❤️ for the ComfyUI and AI art communities.
