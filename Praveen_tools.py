@@ -3,6 +3,12 @@ import torch
 import folder_paths
 from PIL import Image, ImageEnhance
 import numpy as np
+from comfy.sd import VAE
+from comfy.utils import common_upscale
+from nodes import common_ksampler
+from comfy_extras import nodes_upscale_model
+from comfy import model_management
+from nodes import MAX_RESOLUTION
 from nodes import *
 
 class SelectLastImage:
@@ -188,6 +194,54 @@ class AdjustBrightnessContrast:
             result[b] = torch.from_numpy(img_np)
 
         return (result,)
+        
+class ImageDimensions16:
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "width": ("INT", {
+                    "default": 512, 
+                    "min": 16, 
+                    "max": MAX_RESOLUTION, 
+                    "step": 16
+                }),
+                "height": ("INT", {
+                    "default": 512, 
+                    "min": 16, 
+                    "max": MAX_RESOLUTION, 
+                    "step": 16
+                }),
+                "length": ("INT", {
+                    "default": 17, 
+                    "min": 5, 
+                    "max": 1025, 
+                    "step": 4,
+                    "tooltip": "Must be multiple of 4 plus 1 (5, 9, 13, 17...)"
+                }),
+            },
+        }
+    
+    RETURN_TYPES = ("INT", "INT", "INT")
+    RETURN_NAMES = ("width", "height", "length")
+    FUNCTION = "get_dimensions"
+    CATEGORY = "image/dimensions"
+
+    def get_dimensions(self, width, height, length):
+        # Ensure width/height are multiples of 16
+        width = (width // 16) * 16
+        height = (height // 16) * 16
+        
+        # Ensure length is multiple of 4 plus 1
+        length = ((length - 1) // 4) * 4 + 1
+        length = max(5, min(length, 1025))  # Clamp to valid range
+        
+        return (width, height, length)
+
+
 
 # Node registration
 NODE_CLASS_MAPPINGS = {
@@ -195,6 +249,7 @@ NODE_CLASS_MAPPINGS = {
     "SplitImageList": SplitImageList,
     "MergeImageLists": MergeImageLists,
     "AdjustBrightnessContrast": AdjustBrightnessContrast,
+    "ImageDimensions16": ImageDimensions16,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -202,4 +257,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SplitImageList": "Split Image List (3-Way)",
     "MergeImageLists": "Merge Image Lists (3-Way)",
     "AdjustBrightnessContrast": "Image Brightness/Contrast/Saturation/RGB",
+    "ImageDimensions16": "Image Dimensions (Multiple of 16)",
 }
