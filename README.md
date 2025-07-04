@@ -1,83 +1,107 @@
-# 🧩 ComfyUI - Praveen-Tools
+Praveen Tools for ComfyUI
+A collection of custom nodes for ComfyUI, designed to simplify and enhance image processing workflows. These tools offer utility functions for image selection, splitting/merging batches, post-processing enhancements, and dimension validation tailored for models like Stable Diffusion.
 
-A set of custom nodes for **ComfyUI** that allows advanced manipulation of image lists: splitting, merging, and selecting images efficiently within workflows.
+🧩 Node Features
+📌 SelectLastImage
+Category: image/utility
 
-## 📦 Nodes Included
+Description: Selects the last image from a batch of images.
 
-### 1. **SelectLastImage**
-Selects the **last image** from a batch or list of images.
+Input: Optional list of images
 
-- **Inputs:**
-  - `images` (IMAGE): Optional, force input required.
-- **Outputs:**
-  - `image` (IMAGE): The last image from the list.
+Output: Single image
 
-### 2. **SplitImageList**
-Splits a list of images into **three parts** based on configurable ratios.
+📌 SplitImageList
+Category: image/list
 
-- **Inputs:**
-  - `images` (IMAGE): Required image list.
-  - `split_ratio_1` (FLOAT): Ratio for the first split (default: 0.33).
-  - `split_ratio_2` (FLOAT): Ratio for the second split (default: 0.33).
-- **Outputs:**
-  - `images_1`, `images_2`, `images_3`: Tensors representing the three image segments.
+Description: Splits a batch of images into three separate lists based on customizable ratios.
 
-### 3. **MergeImageLists**
-Merges **three image lists** into one combined list, preserving or customizing the order.
+Inputs:
 
-- **Inputs:**
-  - `images_1`, `images_2`, `images_3` (IMAGE): Image tensors or lists.
-  - `merge_order` (OPTIONAL): Choose merge order (default: "1-2-3").
-- **Outputs:**
-  - `merged_images` (IMAGE): A single merged image list.
+images (IMAGE)
 
----
+split_ratio_1, split_ratio_2 (FLOAT)
 
-## 🛠️ Installation
+Outputs: 3 separate image batches
 
-1. Place the Python file (e.g., `Praveen_tools.py`) into your `ComfyUI/custom_nodes/` folder.
-2. Restart **ComfyUI**.
-3. Search in the node editor:
-   - `"Select Last Image"`
-   - `"Split Image List (3-Way)"`
-   - `"Merge Image Lists (3-Way)"`
+📌 MergeImageLists
+Category: image/list
 
----
+Description: Merges three image batches back into a single list, with customizable order.
 
-## 🧪 Example Use Case
+Inputs:
 
-### 🔄 Reorder a List of Generated Images
+images_1, images_2, images_3 (IMAGE)
 
-1. Generate a batch of images.
-2. Use **SplitImageList** to divide them into sections (e.g., intro, mid, outro).
-3. Reorder sections using **MergeImageLists** with a custom order like `"2-3-1"`.
-4. Use **SelectLastImage** if only the final frame is needed for output.
+merge_order: Order in which to merge (e.g., "1-2-3")
 
----
+Output: Combined image batch
 
-## 📋 Notes
+📌 AdjustBrightnessContrast
+Category: image/postprocessing
 
-- Handles both single image tensors and image lists.
-- Safeguards against empty or improperly shaped inputs.
-- Split ratios are automatically normalized and validated to avoid out-of-range slicing.
+Description: Adjust brightness, contrast, saturation, and individual RGB gains for an image.
 
----
+Inputs:
 
-## 🔧 Requirements
+brightness, contrast, saturation
 
-- **ComfyUI** installed
-- Compatible with **PyTorch** image tensors used in ComfyUI workflows
+red_gain, green_gain, blue_gain
 
----
+Output: Enhanced image
 
-## 📄 License
+📌 ImageDimensions16
+Category: image/dimensions
 
-This project is open-source under the MIT License.
+Description: Ensures image width and height are multiples of 16 and length is a multiple of 4 plus 1 (as required by some models).
 
----
+Inputs:
 
-## ✨ Credits
+width, height, length
 
-Developed by Praveen
+Outputs: Validated/resized dimensions
 
+🔧 Installation
+Copy Praveen_tools.py into your ComfyUI custom nodes folder:
 
+bash
+Copy
+Edit
+ComfyUI/custom_nodes/praveen_tools/Praveen_tools.py
+Restart ComfyUI.
+
+Nodes will appear under categories like:
+
+image/utility
+
+image/list
+
+image/postprocessing
+
+image/dimensions
+
+📁 Node Mappings
+python
+Copy
+Edit
+NODE_CLASS_MAPPINGS = {
+    "SelectLastImage": SelectLastImage,
+    "SplitImageList": SplitImageList,
+    "MergeImageLists": MergeImageLists,
+    "AdjustBrightnessContrast": AdjustBrightnessContrast,
+    "ImageDimensions16": ImageDimensions16,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "SelectLastImage": "Select Last Image",
+    "SplitImageList": "Split Image List (3-Way)",
+    "MergeImageLists": "Merge Image Lists (3-Way)",
+    "AdjustBrightnessContrast": "Image Brightness/Contrast/Saturation/RGB",
+    "ImageDimensions16": "Image Dimensions (Multiple of 16)",
+}
+📜 License
+This project is provided under the MIT License.
+
+🙌 Credits
+Developed by Praveen Halder.
+Built with ❤️ for the ComfyUI and AI art communities.
