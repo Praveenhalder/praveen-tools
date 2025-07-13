@@ -1,61 +1,57 @@
 # Praveen Tools for ComfyUI
 
-A collection of custom nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), designed to simplify and enhance image processing workflows. These tools offer utility functions for image selection, splitting/merging batches, post-processing enhancements, and dimension validation tailored for models like **Stable Diffusion**.
+
+This repository provides a collection of **custom ComfyUI nodes** designed for advanced image list manipulation, image property adjustment, and workflow automation. These nodes enhance ComfyUI's capabilities by enabling batch operations, RGB merging, image generation, and dimension handling.
 
 ---
 
-## 🧩 Node Features
+## 📦 Included Nodes
 
-### 📌 SelectLastImage  
-**Category:** `image/utility`  
-**Description:** Selects the last image from a batch of images.  
-**Input:** Optional list of images  
-**Output:** Single image
+### 🖼️ Image Manipulation
 
----
+- **`SelectLastImage`**  
+  Select the last image from a batch.
 
-### 📌 SplitImageList  
-**Category:** `image/list`  
-**Description:** Splits a batch of images into three separate lists based on customizable ratios.  
-**Inputs:**  
-- `images` (IMAGE)  
-- `split_ratio_1`, `split_ratio_2` (FLOAT)  
-**Outputs:**  
-- Three separate image batches
+- **`SplitImageList`**  
+  Split an image list into three parts using adjustable ratios.
 
----
+- **`MergeImageLists`**  
+  Merge three separate image lists back into one, with configurable order.
 
-### 📌 MergeImageLists  
-**Category:** `image/list`  
-**Description:** Merges three image batches back into a single list, with customizable order.  
-**Inputs:**  
-- `images_1`, `images_2`, `images_3` (IMAGE)  
-- `merge_order`: Order in which to merge (e.g., `"1-2-3"`)  
-**Output:** Combined image batch
+- **`SkipFirstImage`**  
+  Skips the first image from a batch—useful in looped workflows.
 
----
+- **`BlackImageGenerator`**  
+  Generate a black image with configurable width, height, and batch size.
 
-### 📌 AdjustBrightnessContrast  
-**Category:** `image/postprocessing`  
-**Description:** Adjust brightness, contrast, saturation, and individual RGB gains for an image.  
-**Inputs:**  
-- `brightness`, `contrast`, `saturation` (FLOAT)  
-- `red_gain`, `green_gain`, `blue_gain` (FLOAT)  
-**Output:** Enhanced image
+- **`AdjustBrightnessContrast`**  
+  Adjust brightness, contrast, saturation, and RGB gains per channel.
 
----
+### 📏 Resolution Utilities
 
-### 📌 ImageDimensions16  
-**Category:** `image/dimensions`  
-**Description:** Ensures image width and height are multiples of 16 and length is a multiple of 4 plus 1 (as required by some models).  
-**Inputs:**  
-- `width`, `height`, `length`  
-**Outputs:** Validated/resized dimensions
+- **`ImageDimensions16`**  
+  Return fixed dimensions (width, height, length) in multiples of 16.
+
+- **`ResolutionNode`**  
+  Return width and height as integers (multiple of 16), useful for dynamic control.
+
+### 🔁 Overlapping List Processing
+
+- **`OverlappingImageListSplitter`**  
+  Splits a list into up to 6 overlapping image segments.
+
+- **`OverlappingImageListMerger`**  
+  Merges overlapping segments back into a continuous list.
+
+### 🎨 Channel Tools
+
+- **`RGBChannelMerger`**  
+  Merge three grayscale or channel-separated images into one RGB image.
 
 ---
 
-## 🔧 Installation
+## 🧰 Installation
 
-1. Copy `Praveen_tools.py` into your ComfyUI custom nodes folder:
-   ```bash
-   ComfyUI/custom_nodes/praveen_tools/Praveen_tools.py
+1. Place the `.py` file in your ComfyUI `custom_nodes` directory.
+2. Restart ComfyUI.
+
