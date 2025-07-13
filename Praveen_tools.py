@@ -1,5 +1,6 @@
 import os
 import torch
+import nodes
 import folder_paths
 from PIL import Image, ImageEnhance
 import numpy as np
@@ -9,6 +10,9 @@ from nodes import common_ksampler
 from comfy_extras import nodes_upscale_model
 from comfy import model_management
 from nodes import MAX_RESOLUTION
+import math
+from typing import List
+from comfy.utils import ProgressBar
 from nodes import *
 
 class SelectLastImage:
@@ -204,23 +208,23 @@ class ImageDimensions16:
         return {
             "required": {
                 "width": ("INT", {
-                    "default": 512, 
+                    "default": 832, 
                     "min": 16, 
-                    "max": MAX_RESOLUTION, 
+                    "max": nodes.MAX_RESOLUTION, 
                     "step": 16
                 }),
                 "height": ("INT", {
-                    "default": 512, 
+                    "default": 480, 
                     "min": 16, 
-                    "max": MAX_RESOLUTION, 
+                    "max": nodes.MAX_RESOLUTION, 
                     "step": 16
                 }),
                 "length": ("INT", {
-                    "default": 17, 
-                    "min": 5, 
-                    "max": 1025, 
+                    "default": 81, 
+                    "min": 1, 
+                    "max": nodes.MAX_RESOLUTION, 
                     "step": 4,
-                    "tooltip": "Must be multiple of 4 plus 1 (5, 9, 13, 17...)"
+                    "tooltip": "Length for WanVace."
                 }),
             },
         }
@@ -231,15 +235,326 @@ class ImageDimensions16:
     CATEGORY = "image/dimensions"
 
     def get_dimensions(self, width, height, length):
-        # Ensure width/height are multiples of 16
-        width = (width // 16) * 16
-        height = (height // 16) * 16
-        
-        # Ensure length is multiple of 4 plus 1
-        length = ((length - 1) // 4) * 4 + 1
-        length = max(5, min(length, 1025))  # Clamp to valid range
-        
         return (width, height, length)
+        
+
+
+class OverlappingImageListSplitter:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "overlap_count": ("INT", {
+                    "default": 6, 
+                    "min": 1,
+                    "max": 100,
+                    "step": 1
+                }),
+                "segment_size": ("INT", {
+                    "default": 40, 
+                    "min": 1,
+                    "step": 1
+                }),
+            },
+        }
+
+    RETURN_TYPES = tuple(["IMAGE"] * 6)  # Always returns 6 segments
+    RETURN_NAMES = tuple([f"segment_{i+1}" for i in range(6)])
+    FUNCTION = "split_images"
+    CATEGORY = "image/list"
+
+    def split_images(self, images: torch.Tensor, overlap_count: int = 6, segment_size: int = 40):
+        total_images = images.shape[0]
+        
+        # Calculate step size (how much to move forward for each segment)
+        step = segment_size - overlap_count
+        
+        # Calculate how many segments we can actually make
+        max_possible_segments = math.ceil((total_images - overlap_count) / step)
+        actual_segments = min(6, max_possible_segments)  # We'll return up to 6 segments
+        
+        # Prepare the output segments
+        segments = []
+        progress_bar = ProgressBar(actual_segments)
+        
+        for i in range(actual_segments):
+            start = i * step
+            end = start + segment_size
+            
+            # Adjust the last segment to not go beyond the image count
+            if end > total_images:
+                end = total_images
+                start = max(0, end - segment_size)
+            
+            segment = images[start:end]
+            
+            # Pad with last frame if segment is smaller than segment_size
+            if segment.shape[0] < segment_size:
+                padding = segment[-1:].repeat(segment_size - segment.shape[0], 1, 1, 1)
+                segment = torch.cat([segment, padding], dim=0)
+            
+            segments.append(segment)
+            progress_bar.update(1)
+        
+        # If we have fewer than 6 segments, pad with empty tensors
+        while len(segments) < 6:
+            segments.append(torch.zeros_like(images[0:1]).repeat(segment_size, 1, 1, 1))
+        
+        return tuple(segments)
+        
+        
+
+class OverlappingImageListMerger:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "overlap_count": ("INT", {
+                    "default": 6, 
+                    "min": 1,
+                    "max": 100,
+                    "step": 1
+                }),
+            },
+            "optional": {
+                "segment_1": ("IMAGE",),
+                "segment_2": ("IMAGE",),
+                "segment_3": ("IMAGE",),
+                "segment_4": ("IMAGE",),
+                "segment_5": ("IMAGE",),
+                "segment_6": ("IMAGE",),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("merged_images",)
+    FUNCTION = "merge_images"
+    CATEGORY = "image/list"
+
+    def merge_images(self, overlap_count: int = 6, segment_1=None, segment_2=None, segment_3=None, segment_4=None, segment_5=None, segment_6=None):
+        # Collect all non-None segments
+        segments = [seg for seg in [segment_1, segment_2, segment_3, segment_4, segment_5, segment_6] if seg is not None]
+        
+        if not segments:
+            # Return empty tensor with correct dimensions if no inputs
+            if segment_1 is not None:
+                return (torch.zeros((0, *segment_1.shape[1:])),)
+            return (torch.zeros((0, 1, 1, 3)),)  # Default empty tensor shape
+        
+        # Filter out empty segments (all zeros)
+        non_empty_segments = []
+        for seg in segments:
+            if torch.any(seg != 0):  # Check if segment contains non-zero values
+                non_empty_segments.append(seg)
+        
+        if not non_empty_segments:
+            return (torch.zeros((0, *segments[0].shape[1:])),)
+        
+        # Start with the first segment
+        merged = non_empty_segments[0]
+        progress_bar = ProgressBar(len(non_empty_segments) - 1)
+        
+        # Merge subsequent segments, skipping the overlapping part
+        for i in range(1, len(non_empty_segments)):
+            current_segment = non_empty_segments[i]
+            
+            # Remove the overlapping frames from the start of current segment
+            # But only if there's actually enough frames to remove
+            if overlap_count < current_segment.shape[0]:
+                current_segment = current_segment[overlap_count:]
+            else:
+                current_segment = current_segment[0:0]  # empty tensor
+            
+            if current_segment.shape[0] > 0:
+                merged = torch.cat([merged, current_segment], dim=0)
+            
+            progress_bar.update(1)
+        
+        return (merged,)
+ 
+ 
+class RGBChannelMerger:
+   
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "red_channel": ("IMAGE",),
+                "green_channel": ("IMAGE",),
+                "blue_channel": ("IMAGE",),
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("merged_rgb",)
+    FUNCTION = "merge_channels"
+    CATEGORY = "image/channels"
+    
+    def merge_channels(self, red_channel, green_channel, blue_channel):
+       
+        
+        # Ensure all inputs have the same spatial dimensions
+        if (red_channel.shape[:3] != green_channel.shape[:3] or 
+            red_channel.shape[:3] != blue_channel.shape[:3]):
+            raise ValueError("All input images must have the same batch size, height, and width")
+        
+        # Get the batch size and spatial dimensions
+        batch_size, height, width = red_channel.shape[:3]
+        
+        # Extract red channel (channel 0) from red_channel input
+        if red_channel.shape[3] >= 1:
+            red = red_channel[:, :, :, 0:1]  # Extract red channel
+        else:
+            raise ValueError("Red channel input must have at least 1 channel")
+        
+        # Extract green channel (channel 1) from green_channel input
+        if green_channel.shape[3] >= 2:
+            green = green_channel[:, :, :, 1:2]  # Extract green channel
+        elif green_channel.shape[3] == 1:
+            green = green_channel[:, :, :, 0:1]  # Use single channel as green
+        else:
+            raise ValueError("Green channel input must have at least 1 channel")
+        
+        # Extract blue channel (channel 2) from blue_channel input
+        if blue_channel.shape[3] >= 3:
+            blue = blue_channel[:, :, :, 2:3]  # Extract blue channel
+        elif blue_channel.shape[3] >= 1:
+            blue = blue_channel[:, :, :, 0:1]  # Use first available channel as blue
+        else:
+            raise ValueError("Blue channel input must have at least 1 channel")
+        
+        # Merge the extracted channels into a single RGB image
+        merged_rgb = torch.cat([red, green, blue], dim=3)
+        
+        return (merged_rgb,) 
+
+
+
+class BlackImageGenerator:
+    """
+    A ComfyUI node that generates a black image with controllable width and height
+    """
+    
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "width": ("INT", {
+                    "default": 512, 
+                    "min": 64, 
+                    "max": 8192, 
+                    "step": 8,
+                    "display": "number"
+                }),
+                "height": ("INT", {
+                    "default": 512, 
+                    "min": 64, 
+                    "max": 8192, 
+                    "step": 8,
+                    "display": "number"
+                }),
+                "batch_size": ("INT", {
+                    "default": 1,
+                    "min": 1,
+                    "max": 64,
+                    "step": 1,
+                    "display": "number"
+                }),
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
+    FUNCTION = "generate_black_image"
+    CATEGORY = "image/generate"
+    
+    def generate_black_image(self, width, height, batch_size):
+        """
+        Generate a black image with specified dimensions
+        
+        Args:
+            width (int): Width of the image in pixels
+            height (int): Height of the image in pixels  
+            batch_size (int): Number of images to generate
+            
+        Returns:
+            tuple: Tuple containing the generated black image tensor
+        """
+        # Create a black image tensor with shape [batch_size, height, width, channels]
+        # ComfyUI expects images in BHWC format with values in range [0, 1]
+        black_image = torch.zeros((batch_size, height, width, 3), dtype=torch.float32)
+        
+        return (black_image,)
+
+
+
+class SkipFirstImage:
+    """
+    A ComfyUI node that skips the first image from an image list/batch.
+    Useful for removing the first image from a batch of images.
+    """
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+            },
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "skip_first"
+    CATEGORY = "image/batch"
+    
+    def skip_first(self, images):
+        """
+        Skip the first image from the input batch.
+        
+        Args:
+            images: Input image tensor with shape (batch, height, width, channels)
+            
+        Returns:
+            Tensor with the first image removed
+        """
+        # Check if there are any images
+        if images.shape[0] == 0:
+            # Return empty tensor if no images
+            return (images,)
+        
+        # Check if there's only one image
+        if images.shape[0] == 1:
+            # Return empty tensor if only one image (since we're skipping it)
+            empty_tensor = torch.zeros((0, images.shape[1], images.shape[2], images.shape[3]), 
+                                     dtype=images.dtype, device=images.device)
+            return (empty_tensor,)
+        
+        # Skip the first image and return the rest
+        remaining_images = images[1:]
+        return (remaining_images,)
+
+class ResolutionNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "width": ("INT", {"default": 832, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16}),
+                "height": ("INT", {"default": 480, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16}),
+            }
+        }
+    
+    RETURN_TYPES = ("INT", "INT")
+    RETURN_NAMES = ("width", "height")
+    FUNCTION = "get_resolution"
+    CATEGORY = "utils"
+    
+    def get_resolution(self, width, height):
+        return (width, height)
+
 
 
 
@@ -250,6 +565,12 @@ NODE_CLASS_MAPPINGS = {
     "MergeImageLists": MergeImageLists,
     "AdjustBrightnessContrast": AdjustBrightnessContrast,
     "ImageDimensions16": ImageDimensions16,
+    "OverlappingImageListSplitter": OverlappingImageListSplitter,
+    "OverlappingImageListMerger": OverlappingImageListMerger,
+    "RGBChannelMerger": RGBChannelMerger,
+    "BlackImageGenerator": BlackImageGenerator,
+    "SkipFirstImage": SkipFirstImage,
+    "ResolutionNode": ResolutionNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -258,4 +579,10 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "MergeImageLists": "Merge Image Lists (3-Way)",
     "AdjustBrightnessContrast": "Image Brightness/Contrast/Saturation/RGB",
     "ImageDimensions16": "Image Dimensions (Multiple of 16)",
+    "OverlappingImageListSplitter": "Overlapping Image List Splitter (Auto)",
+    "OverlappingImageListMerger": "Overlapping Image List Merger (Auto)",
+    "RGBChannelMerger": "RGB Channel Merger",
+    "BlackImageGenerator": "Black Image Generator",
+    "SkipFirstImage": "Skip First Image",
+    "ResolutionNode": "Resolution Wan",
 }
