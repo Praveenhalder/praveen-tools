@@ -36,7 +36,7 @@ A collection of utility nodes for ComfyUI focused on image manipulation, tiling,
 Navigate to your ComfyUI custom nodes folder and clone this repository:
 
 ```bash
-git clone https://github.com/Praveenhalder/Praveen_tools
+git clone https://github.com/Praveenhalder/praveen-tools.git
 ```
 
 ### Method 2: Manual Installation
