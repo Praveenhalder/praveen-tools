@@ -28,7 +28,7 @@ Documentation = "https://github.com/Praveenhalder/praveen-tools/wiki"
 "Bug Tracker" = "https://github.com/Praveenhalder/praveen-tools/issues"
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "prabeenh"
 DisplayName = "praveen-tools"
 Icon = ""
 includes = [] 
