@@ -193,39 +193,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 GPL-3.0 License
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Credits
 
 Created by Praveen
